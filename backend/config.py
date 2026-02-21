@@ -10,9 +10,6 @@ PORT: int = int(os.getenv("PORT", "5477"))
 HOST: str = os.getenv("HOST", "0.0.0.0")
 ENV: str = os.getenv("ENV", "dev")  # "dev" or "prod"
 
-# ---------- Security ----------
-API_KEY: str = os.getenv("API_KEY", "dev-key-change-me")
-
 # ---------- Investment Rates (annual) ----------
 NPS_RATE: float = 0.0711
 INDEX_RATE: float = 0.1449

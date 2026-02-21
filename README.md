@@ -2,70 +2,17 @@
 
 Production-grade API for automated retirement savings through expense-based micro-investments. Built for the BlackRock Hackathon Challenge.
 
-## Architecture
-
-```
-backend/
-├── main.py                         # FastAPI app + middleware + SPA serving
-├── config.py                       # All constants & env settings
-├── core/
-│   ├── logging.py                  # Structured JSON logging
-│   ├── security.py                 # API key authentication
-│   └── datetime_utils.py           # Date parsing & period checks
-└── api/v1/
-    ├── router.py                   # V1 router aggregator
-    ├── routers/                    # Thin HTTP layer (stateless)
-    │   ├── transactions.py         # :parse, :validator, :filter
-    │   ├── returns.py              # :nps, :index
-    │   └── performance.py          # /performance
-    ├── models/                     # Pydantic schemas (data governance)
-    │   ├── transaction.py
-    │   ├── period.py
-    │   ├── requests.py
-    │   └── responses.py
-    └── services/                   # Pure business logic
-        ├── parser_service.py       # Ceiling/remanent calculation
-        ├── validator_service.py    # Negative amount & duplicate checks
-        ├── period_service.py       # q/p/k period application
-        ├── returns_service.py      # Compound interest & inflation
-        ├── tax_service.py          # Tax slabs & NPS deduction
-        └── performance_service.py  # System metrics
-frontend/                           # React playground (served from same origin)
-test/                               # Unit + integration tests
-```
-
-## Tech Stack
-
-| Component  | Choice       | Why                                             |
-| ---------- | ------------ | ----------------------------------------------- |
-| Language   | Python 3.12  | Simple, clear, fast enough                      |
-| Framework  | FastAPI      | Async, auto-OpenAPI docs, Pydantic integration  |
-| Server     | uvicorn      | Fastest Python ASGI server (uvloop + httptools) |
-| Validation | Pydantic v2  | Rust-backed, type-safe schemas                  |
-| Frontend   | React + Vite | Fast builds, same-origin serving (no CORS)      |
-| Container  | Alpine Linux | ~50MB base, security-hardened                   |
-| Testing    | pytest       | Industry standard, clean fixtures               |
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Node.js 20+ (for frontend build)
-- Docker (for containerized deployment)
-
-### Local Development
+## Production Deployment (Docker)
 
 ```bash
-# 1. Install dependencies
-uv sync
+# Pull and run from Docker Hub (3 uvicorn workers)
+docker run -d -p 5477:5477 tjnakka/blk-hacking-ind-tejas-nakka
+```
 
-# 2. Build frontend (optional — API works without it)
-cd frontend && npm install && npm run build && cd ..
+Or with Docker Compose:
 
-# 3. Start the server
-uv run uvicorn backend.main:app --host 0.0.0.0 --port 5477 --reload
+```bash
+docker compose up -d
 ```
 
 The API is now available at **http://localhost:5477**
@@ -74,21 +21,34 @@ The API is now available at **http://localhost:5477**
 - Frontend Playground: http://localhost:5477/
 - Performance: http://localhost:5477/blackrock/challenge/v1/performance
 
-### Docker
+## Local Development
+
+### Prerequisites
+
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- Node.js 20+ (for frontend build)
 
 ```bash
-# Build the image
-docker build -t blk-hacking-ind-tejas-nakka .
+# 1. Install dependencies
+uv sync
 
-# Run the container
-docker run -d -p 5477:5477 blk-hacking-ind-tejas-nakka
+# 2. Build frontend (optional — API works without it)
+cd frontend && npm install && npm run build && cd ..
+
+# 3. Start the server (with hot-reload)
+uv run uvicorn backend.main:app --host 0.0.0.0 --port 5477 --reload
 ```
 
-Or with Docker Compose:
+### Testing
 
 ```bash
-docker compose up -d
+# Run all tests (58 tests)
+uv run pytest test/ -v
 ```
+
+- **Unit tests**: parser, validator, periods, tax, returns
+- **Integration tests**: full endpoint round-trips with spec examples
 
 ## API Endpoints
 
@@ -127,41 +87,72 @@ Full pipeline: parse → validate → apply q/p period rules → check k members
 
 `GET /blackrock/challenge/v1/performance`
 
-Returns server uptime, memory usage, and thread count.
+Returns current datetime, memory usage, and thread count.
 
-## Testing
+## Architecture
 
-```bash
-# Run all tests (58 tests)
-uv run pytest test/ -v
+```
+backend/
+├── main.py                          # FastAPI app + middleware + SPA serving
+├── config.py                        # All constants & env settings
+├── core/
+│   ├── logging.py                   # Structured JSON logging
+│   └── datetime_utils.py            # Date parsing utility
+└── api/v1/
+    ├── router.py                    # V1 router aggregator
+    ├── routers/                     # Thin HTTP layer (stateless)
+    │   ├── transactions.py          # :parse, :validator, :filter
+    │   ├── returns.py               # :nps, :index
+    │   └── performance.py           # /performance
+    ├── models/                      # Pydantic schemas (data governance)
+    │   ├── transaction.py           # Expense, Transaction, InvalidTransaction
+    │   ├── period.py                # BasePeriod → QPeriod, PPeriod, KPeriod
+    │   ├── requests.py              # Request bodies
+    │   └── responses.py             # Response bodies
+    └── services/                    # Business logic (class-based)
+        ├── transaction_pipeline.py  # TransactionPipeline (parse/validate/periods)
+        ├── returns_service.py       # ReturnsCalculator (compound interest)
+        ├── tax_service.py           # TaxCalculator (progressive slabs)
+        ├── investment_strategy.py   # Strategy + StrategyRegistry + StrategyName enum
+        └── performance_service.py   # PerformanceMonitor (system metrics)
+frontend/                            # React playground (served from same origin)
+test/                                # Unit + integration tests (58 tests)
 ```
 
-Tests are in the `test/` directory and include:
+## Tech Stack
 
-- **Unit tests**: parser, validator, periods, tax, returns
-- **Integration tests**: full endpoint round-trips with spec examples
+| Component  | Choice       | Why                                             |
+| ---------- | ------------ | ----------------------------------------------- |
+| Language   | Python 3.12  | Simple, clear, fast enough                      |
+| Framework  | FastAPI      | Async, auto-OpenAPI docs, Pydantic integration  |
+| Server     | uvicorn      | Fastest Python ASGI server (uvloop + httptools) |
+| Validation | Pydantic v2  | Rust-backed, type-safe schemas                  |
+| Frontend   | React + Vite | Fast builds, same-origin serving (no CORS)      |
+| Container  | Alpine Linux | ~50MB base, security-hardened                   |
+| Testing    | pytest       | Industry standard, clean fixtures               |
+
+## Design Patterns
+
+| Pattern             | Where                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| **Facade**          | `TransactionPipeline.run()` — single call for the full parse → validate → period pipeline |
+| **Strategy**        | `InvestmentStrategy` ABC with `NPSStrategy` / `IndexStrategy`                             |
+| **Registry**        | `StrategyRegistry` — O(1) lookup, zero-change extensibility                               |
+| **Template Method** | `_apply_q` / `_apply_p` share the same iterate-and-transform skeleton                     |
+| **Enum (StrEnum)**  | `StrategyName` — type-safe strategy selection                                             |
+| **Inheritance**     | `BasePeriod` → `QPeriod`, `PPeriod`, `KPeriod`                                            |
 
 ## Design Principles
 
-| Principle           | Implementation                                            |
-| ------------------- | --------------------------------------------------------- |
-| **Clarity**         | Descriptive naming, type hints, Pydantic docs             |
-| **Modular**         | Router → Service → Utils layers, single responsibility    |
-| **Stateless**       | No DB, no sessions — all data in request/response         |
-| **Extensible**      | Versioned API (v1/v2), new investment vehicles = new rate |
-| **Data Governance** | Pydantic enforces schemas, invalid input rejected         |
-| **Observable**      | Structured JSON logging, performance endpoint             |
-| **Secure**          | Optional API key auth, input validation                   |
-
-## Security
-
-Set the `API_KEY` environment variable to enable authentication:
-
-```bash
-docker run -d -p 5477:5477 -e API_KEY=your-key blk-hacking-ind-tejas-nakka
-```
-
-Then include `X-API-Key: your-key` header in requests. In dev mode (default), auth is disabled.
+| Principle           | Implementation                                         |
+| ------------------- | ------------------------------------------------------ |
+| **Clarity**         | Descriptive naming, type hints, Pydantic docs          |
+| **Modular**         | Router → Service → Utils layers, single responsibility |
+| **Stateless**       | No DB, no sessions — all data in request/response      |
+| **Extensible**      | StrategyRegistry + versioned API (v1/v2)               |
+| **Data Governance** | Pydantic enforces schemas, invalid input rejected      |
+| **Observable**      | Structured JSON logging, performance endpoint          |
+| **Secure**          | Pydantic input validation, type-safe schemas           |
 
 ## Versioning
 
