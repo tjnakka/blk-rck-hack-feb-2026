@@ -1,4 +1,4 @@
-# docker build -t blk-hacking-ind-tejas-nakka .
+# docker buildx build -t blk-hacking-ind-tejas-nakka .
 
 # ============================================================
 # Stage 1: Build React frontend
@@ -8,7 +8,7 @@ FROM node:20-alpine AS frontend
 
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci --production=false
+RUN npm ci
 COPY frontend/ .
 RUN npm run build
 
@@ -24,12 +24,16 @@ FROM python:3.12-alpine
 
 WORKDIR /app
 
+# Install build dependencies required by psutil (C extension)
+RUN apk add --no-cache gcc python3-dev musl-dev linux-headers
+
 # Install uv — significantly faster than pip (Rust-based resolver)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Install dependencies first (layer caching optimization)
+ENV UV_SYSTEM_PYTHON=1
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --system --no-cache
+RUN uv sync --frozen --no-dev --no-cache
 
 # Copy application source
 COPY backend/ ./backend/
