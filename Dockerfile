@@ -44,8 +44,10 @@ COPY --from=frontend /app/frontend/dist ./frontend/dist
 # Copy tests (for in-container test execution)
 COPY test/ ./test/
 
+ENV ENV=prod
+
 EXPOSE 5477
 
 # Run with uvicorn — single worker for hackathon simplicity
 # Use --workers N for production multi-core utilization
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "5477"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "5477", "--workers", "3"]
