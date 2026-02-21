@@ -4,30 +4,28 @@ Validation: Compound interest, inflation adjustment, and returns calculation
 Command: pytest test/test_returns.py -v
 """
 
-from backend.api.v1.services.returns_service import (
-    calculate_investment_years,
-    compound_interest,
-    inflation_adjust,
-    calculate_returns,
-)
+from backend.api.v1.services.returns_service import ReturnsCalculator
+from backend.api.v1.services.investment_strategy import StrategyRegistry
 from backend.api.v1.models.period import KPeriod
+
+calculator = ReturnsCalculator()
 
 
 class TestInvestmentYears:
     """Unit tests for investment years calculation."""
 
     def test_young_investor(self):
-        assert calculate_investment_years(29) == 31
+        assert calculator._investment_years(29) == 31
 
     def test_retirement_age(self):
         """At retirement age, use minimum 5 years."""
-        assert calculate_investment_years(60) == 5
+        assert calculator._investment_years(60) == 5
 
     def test_beyond_retirement(self):
-        assert calculate_investment_years(65) == 5
+        assert calculator._investment_years(65) == 5
 
     def test_very_young(self):
-        assert calculate_investment_years(20) == 40
+        assert calculator._investment_years(20) == 40
 
 
 class TestCompoundInterest:
@@ -35,14 +33,14 @@ class TestCompoundInterest:
 
     def test_nps_spec_example(self):
         """145 invested at 7.11% for 31 years."""
-        result = compound_interest(145, 0.0711, 31)
+        result = calculator._compound(145, 0.0711, 31)
         assert abs(result - 1219.45) < 1.0  # within ±1 of spec
 
     def test_zero_principal(self):
-        assert compound_interest(0, 0.0711, 31) == 0
+        assert calculator._compound(0, 0.0711, 31) == 0
 
     def test_zero_years(self):
-        assert compound_interest(145, 0.0711, 0) == 145
+        assert calculator._compound(145, 0.0711, 0) == 145
 
 
 class TestInflationAdjust:
@@ -50,12 +48,12 @@ class TestInflationAdjust:
 
     def test_nps_spec_example(self):
         """1219.45 adjusted for 5.5% inflation over 31 years."""
-        future = compound_interest(145, 0.0711, 31)
-        real = inflation_adjust(future, 0.055, 31)
+        future = calculator._compound(145, 0.0711, 31)
+        real = calculator._inflation_adjust(future, 0.055, 31)
         assert abs(real - 231.9) < 1.0  # within ±1 of spec
 
     def test_zero_inflation(self):
-        assert inflation_adjust(1000, 0, 10) == 1000
+        assert calculator._inflation_adjust(1000, 0, 10) == 1000
 
 
 class TestCalculateReturns:
@@ -67,13 +65,13 @@ class TestCalculateReturns:
             (KPeriod(start="2023-01-01 00:00:00", end="2023-12-31 23:59:59"), 145.0),
             (KPeriod(start="2023-03-01 00:00:00", end="2023-11-30 23:59:59"), 75.0),
         ]
-        result = calculate_returns(
+        strategy = StrategyRegistry.get("nps")
+        result = calculator.calculate(
             k_period_sums=k_period_sums,
-            rate=0.0711,
+            strategy=strategy,
             age=29,
             inflation_pct=5.5,
             annual_income=600_000,
-            is_nps=True,
         )
 
         assert len(result) == 2
@@ -88,13 +86,13 @@ class TestCalculateReturns:
         k_period_sums = [
             (KPeriod(start="2023-01-01 00:00:00", end="2023-12-31 23:59:59"), 145.0),
         ]
-        result = calculate_returns(
+        strategy = StrategyRegistry.get("index")
+        result = calculator.calculate(
             k_period_sums=k_period_sums,
-            rate=0.1449,
+            strategy=strategy,
             age=29,
             inflation_pct=5.5,
             annual_income=600_000,
-            is_nps=False,
         )
         assert result[0].taxBenefit == 0.0
         assert result[0].profit > 0

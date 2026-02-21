@@ -7,6 +7,13 @@
 			"command": "docker buildx build -t blk-hacking-ind-tejas-nakka .",
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "Run Tests",
+			"type": "shell",
+			"command": "${workspaceFolder}/.venv/bin/python -m pytest test/ -v",
+			"group": "test",
+			"problemMatcher": []
 		}
 	]
 }

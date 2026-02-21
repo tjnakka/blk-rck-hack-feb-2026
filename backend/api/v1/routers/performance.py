@@ -6,9 +6,10 @@ Performance router:
 from fastapi import APIRouter
 
 from backend.api.v1.models.responses import PerformanceResponse
-from backend.api.v1.services.performance_service import get_performance_metrics
+from backend.api.v1.services.performance_service import PerformanceMonitor
 
 router = APIRouter(tags=["Performance"])
+monitor = PerformanceMonitor()
 
 
 @router.get(
@@ -17,11 +18,5 @@ router = APIRouter(tags=["Performance"])
     summary="Get system performance metrics",
 )
 async def performance() -> PerformanceResponse:
-    """
-    Reports system execution metrics:
-      - time: server uptime
-      - memory: process RSS in MB
-      - threads: active thread count
-    """
-    metrics = get_performance_metrics()
-    return PerformanceResponse(**metrics)
+    """Server uptime, RSS memory, and active thread count."""
+    return monitor.metrics()

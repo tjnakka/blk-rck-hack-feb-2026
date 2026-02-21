@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.config import PORT, HOST
+from backend.config import PORT, HOST, ENV
 from backend.core.logging import get_logger
 from backend.api.v1.router import router as v1_router
 
@@ -72,4 +72,4 @@ if os.path.isdir(FRONTEND_DIR):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("src.main:app", host=HOST, port=PORT, reload=True)
+    uvicorn.run("backend.main:app", host=HOST, port=PORT, reload=(ENV == "dev"))
