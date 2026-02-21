@@ -1,0 +1,25 @@
+# Docker Compose configuration for BlackRock Retirement Savings API
+# Run: docker compose up -d
+# Stop: docker compose down
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: blk-hacking-ind-tejas-nakka
+    container_name: blk-retirement-api
+    ports:
+      - "5477:5477"
+    environment:
+      - PORT=5477
+      - HOST=0.0.0.0
+      # Set API_KEY to enable authentication (optional)
+      # - API_KEY=your-secure-key-here
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5477/blackrock/challenge/v1/performance"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
